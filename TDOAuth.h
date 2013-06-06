@@ -29,6 +29,8 @@
 
 #import <Foundation/Foundation.h>
 
+#define TDUserAgent @"Mac Weather/1.0"
+
 /**
   This OAuth implementation doesn't cover the whole spec (eg. it’s HMAC only).
   But you'll find it works with almost all the OAuth implementations you need
@@ -83,6 +85,15 @@
                      consumerSecret:(NSString *)consumerSecret
                         accessToken:(NSString *)accessToken
                         tokenSecret:(NSString *)tokenSecret;
+
++ (NSString *)QueryParametersForPath:(NSString *)unencodedPathWithoutQuery
+                       GETParameters:(NSDictionary *)unencodedParameters
+                              scheme:(NSString *)scheme
+                                host:(NSString *)host
+                         consumerKey:(NSString *)consumerKey
+                      consumerSecret:(NSString *)consumerSecret
+                         accessToken:(NSString *)accessToken
+                         tokenSecret:(NSString *)tokenSecret;
 @end
 
 

@@ -66,7 +66,7 @@ int TDOAuthUTCTimeOffset = 0;
     return self;
 }
 - (id)chomp {
-    const int N = [self length] - 1;
+    const int N = (int)[self length] - 1;
     if (N >= 0)
         [self deleteCharactersInRange:NSMakeRange(N, 1)];
     return self;
@@ -109,7 +109,7 @@ static NSString* timestamp() {
     time_t t;
     time(&t);
     mktime(gmtime(&t));
-    return [NSString stringWithFormat:@"%u", t + TDOAuthUTCTimeOffset];
+    return [NSString stringWithFormat:@"%lu", t + TDOAuthUTCTimeOffset];
 }
 
 
@@ -171,6 +171,14 @@ static NSString* timestamp() {
     return header;
 }
 
+- (NSString *)authorizationParameters {
+    NSMutableString *header = [NSMutableString stringWithCapacity:512];
+    for (NSString *key in params.allKeys)
+        [[[[header add:key] add:@"="] add:[params objectForKey:key]] add:@"&"];
+    [[[header add:@"oauth_signature="] add:self.signature.pcen] add:@""];
+    return header;
+}
+
 - (NSMutableURLRequest *)request {
     //TODO timeout interval depends on connectivity status
     NSMutableURLRequest *rq = [NSMutableURLRequest requestWithURL:url
@@ -221,6 +229,46 @@ static NSString* timestamp() {
                     consumerSecret:consumerSecret
                        accessToken:accessToken
                        tokenSecret:tokenSecret];
+}
+
++ (NSString *)QueryParametersForPath:(NSString *)unencodedPathWithoutQuery
+                       GETParameters:(NSDictionary *)unencodedParameters
+                              scheme:(NSString *)scheme
+                                host:(NSString *)host
+                         consumerKey:(NSString *)consumerKey
+                      consumerSecret:(NSString *)consumerSecret
+                         accessToken:(NSString *)accessToken
+                         tokenSecret:(NSString *)tokenSecret;
+{
+    if (!host || !unencodedPathWithoutQuery)
+        return nil;
+
+    TDOAuth *oauth = [[TDOAuth alloc] initWithConsumerKey:consumerKey
+                                           consumerSecret:consumerSecret
+                                              accessToken:accessToken
+                                              tokenSecret:tokenSecret];
+
+    // We don't use pcen as we don't want to percent encode eg. /, this
+    // is perhaps not the most all encompassing solution, but in practice
+    // it works everywhere and means that programmer error is *much* less
+    // likely.
+    NSString *encodedPathWithoutQuery = [unencodedPathWithoutQuery stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+
+    id path = [oauth addParameters:unencodedParameters];
+    if (path) {
+        [path insertString:@"?" atIndex:0];
+        [path insertString:encodedPathWithoutQuery atIndex:0];
+    } else {
+        path = encodedPathWithoutQuery;
+    }
+
+    oauth->method = @"GET";
+    oauth->url = [[NSURL alloc] initWithString:[NSString stringWithFormat:@"%@://%@%@", scheme, host, path]];
+
+    NSString *ret = [oauth authorizationParameters];
+    [oauth->url release];
+    [oauth release];
+    return ret;
 }
 
 + (NSURLRequest *)URLRequestForPath:(NSString *)unencodedPathWithoutQuery
@@ -287,7 +335,7 @@ static NSString* timestamp() {
     if (postbody.length) {
         [rq setHTTPBody:[postbody dataUsingEncoding:NSUTF8StringEncoding]];
         [rq setValue:@"application/x-www-form-urlencoded" forHTTPHeaderField:@"Content-Type"];
-        [rq setValue:[NSString stringWithFormat:@"%u", rq.HTTPBody.length] forHTTPHeaderField:@"Content-Length"];
+        [rq setValue:[NSString stringWithFormat:@"%lu", (unsigned long)rq.HTTPBody.length] forHTTPHeaderField:@"Content-Length"];
     }
 
     [oauth->url release];
